@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zero Exposure</title>
+<meta name="description" content="Four hospitals train one heart-disease model without sharing a single patient record: live federated learning with differential privacy and secure aggregation.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script src="vendor/chart.umd.min.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="#run" aria-label="Zero Exposure, back to the run console">
+      <svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none"/></svg>
+      <span>Zero Exposure</span>
+    </a>
+    <nav aria-label="Sections">
+      <a href="#run">Run</a>
+      <a href="#training">Training</a>
+      <a href="#server-view">Server view</a>
+      <a href="#sweeps">Privacy vs accuracy</a>
+      <a href="#attacks">Attacks</a>
+    </nav>
+    <span class="badge" id="mode-badge" title="How runs are executed">…</span>
+    <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch between light and dark theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <h1>Four hospitals train one heart-disease model. <span class="gold">No patient record leaves any hospital.</span></h1>
+    <p class="lede">Each hospital trains on its own patients and sends only model updates. Noise protects each patient, and the
+      updates are masked so the server only ever sees their sum.</p>
+    <dl class="glossary">
+      <div><dt>Federated learning</dt><dd>the model travels to the data; the data never travels.</dd></div>
+      <div><dt>Differential privacy (ε)</dt><dd>calibrated noise in training; a smaller ε means less can be learned about any one patient.</dd></div>
+      <div><dt><span class="gold">SecAgg+</span></dt><dd>secure aggregation: updates are masked so the server can add them up but not read any one.</dd></div>
+    </dl>
+  </section>
+
+  <!-- ===================================================================================== Run console -->
+  <section id="run" class="panel" aria-labelledby="run-h">
+    <div class="panel-head">
+      <h2 id="run-h">Run console</h2>
+      <div class="seg" role="radiogroup" aria-label="Data source">
+        <label><input type="radio" name="source" value="live" checked> Live training</label>
+        <label><input type="radio" name="source" value="replay"> Replay</label>
+      </div>
+    </div>
+
+    <form id="run-form" class="console" novalidate>
+      <div class="field">
+        <label for="f-noise">Noise <output id="o-noise" for="f-noise">1.0</output></label>
+        <input id="f-noise" name="noise" type="range" min="0" max="5" step="0.1" value="1.0" aria-describedby="h-noise">
+        <small id="h-noise">How much DP noise each hospital adds. 0 = no formal privacy.</small>
+      </div>
+      <div class="field">
+        <label for="f-strategy">Strategy</label>
+        <select id="f-strategy" name="strategy" aria-describedby="h-strategy">
+          <option value="fedavg">FedAvg</option>
+          <option value="fedprox">FedProx</option>
+        </select>
+        <small id="h-strategy">FedProx keeps each hospital close to the shared model (helps uneven data).</small>
+      </div>
+      <div class="field">
+        <label for="f-agg">Averaging</label>
+        <select id="f-agg" name="agg" aria-describedby="h-agg">
+          <option value="fedavg">Mean (FedAvg)</option>
+          <option value="median">Median (robust)</option>
+        </select>
+        <small id="h-agg">Median ignores one extreme update, which blunts a poisoning hospital.</small>
+      </div>
+      <div class="field">
+        <span class="label" id="l-secagg">SecAgg+</span>
+        <label class="switch">
+          <input id="f-secagg" name="secagg" type="checkbox" checked aria-labelledby="l-secagg" aria-describedby="h-secagg">
+          <span class="track" aria-hidden="true"></span>
+          <span class="switch-text" id="t-secagg">On: server sees only the sum</span>
+        </label>
+        <small id="h-secagg">Median needs every update in the clear, so it turns SecAgg+ off.</small>
+      </div>
+      <div class="field">
+        <label for="f-rounds">Rounds</label>
+        <input id="f-rounds" name="rounds" type="number" min="1" max="30" step="1" value="20" inputmode="numeric">
+        <small>One round = local training at every hospital, then one merge.</small>
+      </div>
+      <div class="field">
+        <label for="f-seed">Seed</label>
+        <input id="f-seed" name="seed" type="number" min="0" max="99" step="1" value="0" inputmode="numeric">
+        <small>Same seed, same split and same noise: reproducible runs.</small>
+      </div>
+      <div class="field">
+        <label for="f-attack">Attack</label>
+        <select id="f-attack" name="attack" aria-describedby="h-attack">
+          <option value="none">None</option>
+          <option value="labelflip">Label flip</option>
+          <option value="boost">Boost</option>
+          <option value="flipboost">Label flip + boost</option>
+        </select>
+        <small id="h-attack">A malicious hospital poisons its update: flipped labels and/or an update scaled up.</small>
+      </div>
+      <div class="field">
+        <label for="f-attacker">Attacker</label>
+        <select id="f-attacker" name="attacker" aria-describedby="h-attacker"></select>
+        <small id="h-attacker">Cleveland is the hospital whose patients the curious server probes, so it is never the attacker.</small>
+      </div>
+      <div class="actions">
+        <button type="submit" class="btn primary" id="start-btn">Start training</button>
+        <button type="button" class="btn" id="stop-btn" disabled>Stop</button>
+      </div>
+    </form>
+
+    <div id="replay-form" class="console replay" hidden>
+      <div class="field">
+        <label for="f-replay">Recorded run</label>
+        <select id="f-replay"></select>
+        <small>A real run, recorded earlier and played back with its original timing. No training happens.</small>
+      </div>
+      <div class="field">
+        <label for="f-speed">Speed</label>
+        <select id="f-speed">
+          <option value="1">1× (real time)</option>
+          <option value="10">10×</option>
+          <option value="30" selected>30×</option>
+          <option value="100">100×</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn primary" id="play-btn">Play</button>
+      </div>
+    </div>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <!-- ===================================================================================== Training -->
+  <section id="training" class="panel" aria-labelledby="training-h">
+    <div class="panel-head">
+      <h2 id="training-h">Training</h2>
+      <span class="source-tag" id="source-tag"></span>
+    </div>
+    <div class="kpis">
+      <div class="kpi model"><span class="kpi-label">Global accuracy</span><span class="kpi-value" id="k-acc">–</span>
+        <span class="kpi-note">share of test patients diagnosed right, all 4 hospitals</span></div>
+      <div class="kpi model"><span class="kpi-label">F1 score</span><span class="kpi-value" id="k-f1">–</span>
+        <span class="kpi-note">balance of missed and false alarms (1 = perfect)</span></div>
+      <div class="kpi lock-kpi" id="k-eps-tile"><span class="kpi-label">Max ε (privacy)</span><span class="kpi-value" id="k-eps">–</span>
+        <span class="kpi-note" id="k-eps-band">worst hospital's privacy loss so far</span></div>
+      <div class="kpi"><span class="kpi-label">Round</span><span class="kpi-value" id="k-round">–</span>
+        <span class="kpi-note" id="k-round-note">rounds done of planned</span></div>
+    </div>
+
+    <div class="grid2">
+      <figure class="card chart-card">
+        <figcaption>
+          <h3>Accuracy per round</h3>
+          <p>Global model (teal) and each hospital's test patients. Dashed: pooling all records with no privacy (centralized),
+            and the average hospital training alone (local-only).</p>
+        </figcaption>
+        <div class="chart-box"><canvas id="c-acc" role="img" aria-label="Accuracy per round: no data yet"></canvas></div>
+        <details class="numbers"><summary>Show the numbers</summary><div class="table-wrap"><table id="t-acc"></table></div></details>
+      </figure>
+      <figure class="card chart-card">
+        <figcaption>
+          <h3>Privacy budget ε per hospital</h3>
+          <p>Grows with each round a hospital trains. Bands: <span class="band strong">&lt; 1 strong</span>
+            <span class="band moderate">1–10 moderate</span> <span class="band weak">&gt; 10 weak</span></p>
+        </figcaption>
+        <div class="chart-box"><canvas id="c-eps" role="img" aria-label="Epsilon per hospital: no data yet"></canvas></div>
+        <p class="empty-note" id="eps-note" hidden>Noise is 0: no differential privacy, so ε is unbounded and not drawn.</p>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================================================================================== Server view -->
+  <section id="server-view" class="panel" aria-labelledby="sv-h">
+    <div class="panel-head">
+      <h2 id="sv-h">What the server sees</h2>
+      <span class="source-tag" id="sv-round"></span>
+    </div>
+    <p class="section-lede">One round, one hospital (Cleveland): the update it trained, what actually left the hospital, and the
+      merged model the server ends up with.</p>
+    <div class="vectors">
+      <figure class="card vec">
+        <figcaption><h3>Plain update</h3><p>What Cleveland would send without SecAgg+: its 369 model weights.</p></figcaption>
+        <canvas id="v-plain" height="90" role="img" aria-label="Plain update: no data yet"></canvas>
+      </figure>
+      <figure class="card vec locked">
+        <figcaption><h3><svg class="lock sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none"/></svg>
+          What the server receives</h3><p id="masked-cap">The same update after SecAgg+ masking.</p></figcaption>
+        <canvas id="v-masked" height="90" role="img" aria-label="Masked update: no data yet"></canvas>
+      </figure>
+      <figure class="card vec">
+        <figcaption><h3>Merged model</h3><p>The sum of all masked updates: the masks cancel, only the average is left.</p></figcaption>
+        <canvas id="v-agg" height="90" role="img" aria-label="Merged model: no data yet"></canvas>
+      </figure>
+    </div>
+    <div class="grid2">
+      <figure class="card">
+        <figcaption><h3>Is the received update just noise?</h3>
+          <p>Chi-square test: sorts the 369 received numbers into 32 equal bins. Real noise fills them evenly.</p></figcaption>
+        <canvas id="v-hist" height="120" role="img" aria-label="Histogram of the received numbers: no data yet"></canvas>
+        <p class="verdict" id="chi-verdict">Waiting for the inspected round…</p>
+      </figure>
+      <figure class="card">
+        <figcaption><h3>Round timeline per hospital</h3>
+          <p>received the model → trained locally → <span class="gold">masked</span> → sent.</p></figcaption>
+        <div class="timeline" id="timeline" role="list" aria-label="Stage timeline per hospital"></div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================================================================================== Sweeps -->
+  <section id="sweeps" class="panel" aria-labelledby="sw-h">
+    <div class="panel-head"><h2 id="sw-h">Privacy vs accuracy</h2><span class="source-tag" id="sw-tag"></span></div>
+    <p class="section-lede">Many finished runs (no attack), averaged over seeds; whiskers show ± one standard deviation. More noise
+      means stronger privacy (smaller ε) and usually a little less accuracy.</p>
+    <figure class="card chart-card wide">
+      <div class="chart-box"><canvas id="c-sweep" role="img" aria-label="Privacy versus accuracy: no sweep results"></canvas></div>
+      <p class="empty-note" id="sweep-empty" hidden>No sweep results yet. They appear here when <code>results/*.jsonl</code> exists.</p>
+    </figure>
+  </section>
+
+  <!-- ===================================================================================== Attacks -->
+  <section id="attacks" class="panel" aria-labelledby="at-h">
+    <div class="panel-head"><h2 id="at-h">Attacks</h2></div>
+    <p class="section-lede">Two threats. A <b>poisoning</b> hospital sends a bad update to wreck the shared model. A
+      <b>curious server</b> runs a membership test: given a patient, was this record used in training?</p>
+    <div class="grid2">
+      <article class="card attack-card" id="card-poison" aria-labelledby="poison-h">
+        <h3 id="poison-h">Poisoning, this run</h3>
+        <div class="attack-body" id="poison-body"><p class="muted">Appears after the last round.</p></div>
+      </article>
+      <article class="card attack-card" id="card-mia" aria-labelledby="mia-h">
+        <h3 id="mia-h">Membership test, this run</h3>
+        <div class="attack-body" id="mia-body"><p class="muted">Appears after the last round.</p></div>
+      </article>
+    </div>
+    <figure class="card chart-card wide">
+      <figcaption><h3>Honest hospitals' accuracy under attack</h3>
+        <p>Mean over seeds of finished runs, by attack and averaging rule.</p></figcaption>
+      <div class="chart-box"><canvas id="c-attack" role="img" aria-label="Attack sweep: no results"></canvas></div>
+      <p class="empty-note" id="attack-empty" hidden>No attack sweep results yet.</p>
+      <details class="numbers"><summary>Show the table</summary><div class="table-wrap"><table id="t-attack"></table></div></details>
+    </figure>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Zero Exposure · IBM Z Datathon 2026 · Flower federated learning, Opacus differential privacy, Flower SecAgg+ · data:
+    UCI Heart Disease (Cleveland, Hungarian, Switzerland, VA).</p>
+</footer>
+</body>
+</html>
