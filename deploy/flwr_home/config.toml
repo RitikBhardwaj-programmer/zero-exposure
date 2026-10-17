@@ -1,0 +1,7 @@
+# Flower CLI connection used by the dashboard container (FLWR_HOME=/app/deploy/flwr_home). TLS: trusts only our demo CA.
+[superlink]
+default = "deploy"
+
+[superlink.deploy]
+address = "superlink:9093"
+root-certificates = "/tls/ca.crt"

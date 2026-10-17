@@ -15,6 +15,10 @@ packages = ["zero_exposure"]
 
 [tool.flwr.app]
 publisher = "zero-exposure"
+# The app bundle every SuperNode receives: the engine's code only (never data, certificates or run folders).
+fab-include = ["zero_exposure/__init__.py", "zero_exposure/attacks.py", "zero_exposure/client_app.py", "zero_exposure/config.py",
+               "zero_exposure/data.py", "zero_exposure/events.py", "zero_exposure/model.py", "zero_exposure/privacy.py",
+               "zero_exposure/server_app.py", "zero_exposure/sim.py"]
 
 [tool.flwr.app.components]
 serverapp = "zero_exposure.server_app:app"

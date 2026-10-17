@@ -1,0 +1,8 @@
+# Mixed-architecture rehearsal on a laptop: the hungarian hospital runs as linux/s390x (QEMU emulation), the rest as amd64.
+# Proves an s390x hospital (big-endian) and an amd64 server agree. Build the s390x image first (slow under emulation):
+#   docker buildx build --platform linux/s390x -f deploy/Dockerfile -t zero-exposure:s390x --load .
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.mixed.yml up -d --no-build
+services:
+  supernode-1:
+    image: zero-exposure:s390x
+    platform: linux/s390x

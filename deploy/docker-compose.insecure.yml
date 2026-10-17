@@ -1,0 +1,15 @@
+# Fallback: the same stack with plaintext gRPC (no TLS), one flag away if certificates cause trouble during a demo.
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.insecure.yml up -d
+services:
+  superlink:
+    command: flower-superlink --insecure --disable-runtime-dependency-installation --host 0.0.0.0 --port 9093 --fleet-api-address 0.0.0.0:9092
+  supernode-0:
+    command: flower-supernode --insecure --superlink superlink:9092 --node-config "partition-id=0 num-partitions=4"
+  supernode-1:
+    command: flower-supernode --insecure --superlink superlink:9092 --node-config "partition-id=1 num-partitions=4"
+  supernode-2:
+    command: flower-supernode --insecure --superlink superlink:9092 --node-config "partition-id=2 num-partitions=4"
+  supernode-3:
+    command: flower-supernode --insecure --superlink superlink:9092 --node-config "partition-id=3 num-partitions=4"
+  dashboard:
+    environment: { FLWR_HOME: /app/deploy/flwr_home_insecure }
