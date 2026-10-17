@@ -1,0 +1,16 @@
+{
+  "recorded": "2026-10-17 22:39:28 +0530",
+  "mode": "sim",
+  "params": {
+    "noise": 1.0,
+    "strategy": "fedavg",
+    "secagg": true,
+    "rounds": 20,
+    "seed": 0,
+    "attack": "labelflip",
+    "attacker": 3,
+    "agg": "fedavg"
+  },
+  "command": "python -m zero_exposure.sim rounds=20 noise=1.0 strategy=fedavg seed=0 secagg=1 agg=fedavg attack=labelflip attacker=3 events-file=C:/Users/DELL/AppData/Local/Temp/ze-replay-pxfafun_/events.jsonl inspect-dir=C:/Users/DELL/AppData/Local/Temp/ze-replay-pxfafun_/insp side-dir=C:/Users/DELL/AppData/Local/Temp/ze-replay-pxfafun_/side",
+  "seconds": 749.2
+}

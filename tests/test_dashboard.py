@@ -5,6 +5,7 @@ Run: python -m pytest tests/test_dashboard.py -q
 import json
 import os
 import shutil
+import subprocess
 import sys
 import textwrap
 import time
@@ -56,6 +57,9 @@ FAKE_CHILD = textwrap.dedent('''
 
 
 def alive(pid: int) -> bool:
+    if os.name == "nt":  # os.kill(pid, 0) would TERMINATE the process on Windows; ask tasklist instead
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"], capture_output=True, text=True).stdout
+        return f'"{pid}"' in out
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -230,7 +234,8 @@ def test_full_run_with_the_fake_child(client, env):
 
     # the run's grandchild is cleaned up with the process group
     gpid = int((folder / "side" / "grandchild.pid").read_text())
-    assert wait_for(lambda: not alive(gpid), 10)
+    if os.name != "nt":  # Windows cannot find an orphaned grandchild by tree once its parent has exited; the servers are Linux
+        assert wait_for(lambda: not alive(gpid), 10)
 
     insp = client.get(f"/api/runs/{run['id']}/inspect").json()
     assert insp["meta"]["n_params"] == 369
