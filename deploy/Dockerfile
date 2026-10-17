@@ -17,13 +17,14 @@ RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 
 # torch: CPU wheels (s390x included) live on the PyTorch index, not on PyPI. Its own layer: it is the second-largest download.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
 
+# Versions pinned to the set that built on LinuxONE (newer cryptography needs a newer Rust than Ubuntu 24.04 has).
 # grpcio compiles for a long time on s390x (use the system OpenSSL / zlib / c-ares). Own layer, so later changes do not redo it.
 ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1 GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1 GRPC_PYTHON_BUILD_SYSTEM_CARES=1 GRPC_PYTHON_BUILD_EXT_COMPILER_JOBS=4
-RUN pip install --no-cache-dir "grpcio>=1.70" "grpcio-health-checking>=1.70" cryptography
+RUN pip install --no-cache-dir grpcio==1.84.0 grpcio-health-checking==1.81.1 cryptography==46.0.7
 
-RUN pip install --no-cache-dir flwr==1.37.0 opacus==1.6.0 fastapi uvicorn
+RUN pip install --no-cache-dir flwr==1.37.0 opacus==1.6.0 fastapi==0.138.2 uvicorn==0.49.0
 
 # s390x: protobuf's compiled extension crashed on import there (seen under emulation); the pure-Python one is correct on any
 # byte order. A .pth line runs at every Python start and selects it only on s390x.
