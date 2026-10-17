@@ -166,7 +166,7 @@ function baseOptions(extra = {}) {
     maintainAspectRatio: false,
     animation: { duration: 250 },
     interaction: { mode: "index", intersect: false },
-    layout: { padding: { right: 72 } },
+    layout: { padding: (c) => ({ right: c.chart.width < 420 ? 8 : 72 }) },
     plugins: {
       legend: { position: "bottom", labels: { boxWidth: 14, boxHeight: 3, usePointStyle: false, color: css("--text-2") } },
       tooltip: { backgroundColor: css("--surface"), titleColor: css("--text"), bodyColor: css("--text-2"), borderColor: css("--border"),
@@ -385,27 +385,26 @@ function followRun(run) {
   setStatus(run.status === "running" ? "Training… each hospital trains on its own patients, then the server merges." : `Run ${run.status}.`);
   pollInspect(run.id);
   state.inspectTimer = setInterval(() => pollInspect(run.id), 2000);
-  listen(`/api/runs/${run.id}/events`, (info) => {
+  listen(`/api/runs/${run.id}/events`, () => {
     closeStream();
     pollInspect(run.id);
-    setRunning(false);
-    const status = info && info.status;
-    if (status === "done") setStatus("Run finished: every hospital kept its patients; only masked updates moved.", "ok");
-    else if (status === "stopped") setStatus("Run stopped.");
-    else if (status === "failed") setStatus("The run failed. Its stderr.log in the run folder says why.", "err");
-    else if (status === "running") setTimeout(() => refreshCurrent(), 1500);
+    waitFinished(run.id);
   });
 }
 
-async function refreshCurrent() {
-  try {
-    const run = await api("/api/runs/current");
-    if (!run) return;
-    if (run.status !== "running") {
-      setRunning(false);
-      if (state.sessionName === run.id) setStatus(`Run ${run.status}.`, run.status === "done" ? "ok" : run.status === "failed" ? "err" : "");
-    }
-  } catch (_) { /* ignore */ }
+// The stream ends at the done / error event; the process may need a few more seconds to shut down (Ray teardown).
+async function waitFinished(runId, tries = 0) {
+  let run = null;
+  try { run = await api("/api/runs/current"); } catch (_) { run = null; }
+  if (run && run.id === runId && run.status === "running" && tries < 150) {
+    setTimeout(() => waitFinished(runId, tries + 1), 2000);
+    return;
+  }
+  setRunning(false);
+  if (!run || run.id !== runId || state.sessionName !== runId) return;
+  if (run.status === "done") setStatus("Run finished: every hospital kept its patients; only masked updates moved.", "ok");
+  else if (run.status === "stopped") setStatus("Run stopped.");
+  else if (run.status === "failed" && !$("status").classList.contains("err")) setStatus("The run failed. Its stderr.log in the run folder says why.", "err");
 }
 
 async function startRun(e) {
@@ -671,7 +670,6 @@ function renderTimeline(stages) {
   stages.forEach((rows, pid) => {
     const dots = rows.filter((s) => typeof s.t === "number").map((s, k) => {
       const x = 4 + ((s.t - t0) / span) * 88;
-      const low = k % 2 === 1 ? " style=\"bottom:-24px\"" : "";
       return `<span class="tl-dot ${esc(s.stage)}" style="left:${x}%" title="${esc(s.stage)} at +${(s.t - t0).toFixed(2)} s"></span>` +
         `<span class="tl-label ${esc(s.stage)}" style="left:${x}%${k % 2 === 1 ? ";bottom:-26px" : ""}">${esc(s.stage)}</span>`;
     }).join("");
@@ -751,7 +749,7 @@ function renderSweeps() {
   charts.sweep.data.datasets = [...lines.entries()].slice(0, 3).map(([label, gs], i) => {
     gs.sort((a, b) => a.noise - b.noise);
     return { label, data: gs.map((g) => ({ x: g.noise, y: g.fed_acc.mean, g })), errors: gs.map((g) => g.fed_acc.std),
-      borderColor: palette[i], backgroundColor: palette[i], borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, endLabel: label };
+      borderColor: palette[i], backgroundColor: palette[i], borderWidth: 2, pointRadius: 4, pointHoverRadius: 6 };
   });
   charts.sweep.update();
   $("sweep-empty").hidden = clean.length > 0;
@@ -793,6 +791,7 @@ function syncConsole() {
   const f = $("run-form");
   $("o-noise").textContent = Number(f.noise.value).toFixed(1);
   const median = f.agg.value !== "fedavg";
+  const wasMedian = state.wasMedian;
   if (median) {
     f.secagg.checked = false;
     f.secagg.disabled = true;
@@ -800,12 +799,14 @@ function syncConsole() {
     f.strategy.disabled = true;
     $("h-secagg").textContent = "Off: the median needs every hospital's update in the clear, and SecAgg+ hides exactly that.";
   } else {
+    if (wasMedian) f.secagg.checked = true; // leaving the median: protection comes back on by default
     f.secagg.disabled = false;
     f.strategy.disabled = false;
     $("h-secagg").textContent = "Median needs every update in the clear, so it turns SecAgg+ off.";
   }
   $("t-secagg").textContent = f.secagg.checked ? "On: server sees only the sum" : "Off: server sees every update";
   f.attacker.disabled = f.attack.value === "none";
+  state.wasMedian = median;
 }
 
 function setSource(source) {
