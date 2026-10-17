@@ -226,3 +226,5 @@ dashboard/runs/
 deploy/certs/
 *.pem
 *.key
+results/*.log
+results/*.err

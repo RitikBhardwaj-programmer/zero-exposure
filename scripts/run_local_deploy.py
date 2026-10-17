@@ -2,7 +2,9 @@
 
 Each SuperNode gets its own data folder holding ONLY its hospital's file (DATA_DIR + ALLOW_MISSING_DATA=1), the same isolation
 the Docker setup gives with one mount per container. The SuperLink (which starts the ServerApp) sees all four files: the
-ServerApp evaluates on every hospital's test rows (a stated demo limit). TLS is on by default (env TLS=0 turns it off):
+ServerApp evaluates on every hospital's test rows (a stated demo limit). This isolation is by configuration only: all
+processes run as the same user under one work folder, so one could read another's folder. Real isolation is the Docker
+deployment (deploy/docker-compose.yml: separate containers, one mounted file each). TLS is on by default (env TLS=0 turns it off):
 SuperNodes and the flwr CLI get only ca.crt. Everything started here is killed at the end, also on Ctrl+C or a crash.
 
 Use:  python scripts/run_local_deploy.py rounds=3 secagg=1 noise=1.0        (keys: CONTRACTS.md section 1)

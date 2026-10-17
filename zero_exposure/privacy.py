@@ -5,7 +5,7 @@ adds Gaussian noise of scale `noise * clip`, then averages. The budget epsilon a
 accountant from (noise, q, number of steps); it depends only on public numbers, so the server can report it.
 
 FedProx under DP: Opacus builds the update from per-patient gradients, so a proximal term added to the loss would be lost.
-The pull towards the global model is applied as its own step after each DP step instead (it reads no patient data).
+Instead its gradient is added to the noised gradient before the momentum step (it reads no patient data).
 """
 from __future__ import annotations
 
@@ -64,13 +64,19 @@ def train_private(model: nn.Module, X: np.ndarray, y: np.ndarray, *, epochs: int
         dp_model.train()
         for _ in range(epochs):
             for xb, yb in dp_loader:
-                if len(xb) == 0:  # Poisson sampling can draw an empty batch
+                # Poisson sampling can draw an empty batch. It is skipped, while epsilon_after counts every expected step:
+                # the reported epsilon is then an over-estimate (the safe direction).
+                if len(xb) == 0:
                     continue
                 dp_opt.zero_grad()
                 loss_fn(dp_model(xb), yb).backward()
-                dp_opt.step()
-                if anchors is not None:
-                    with torch.no_grad():
-                        for p, a in zip(model.parameters(), anchors):
-                            p -= LR * prox_mu * (p - a)
+                # DPOptimizer.step() = pre_step() (clip per patient + add noise into p.grad) + the plain SGD step.
+                # Split it so the FedProx gradient mu * (w - w_global) joins the noised gradient BEFORE momentum,
+                # exactly like an extra loss term would. It reads no patient data, so it costs no privacy.
+                if dp_opt.pre_step():
+                    if anchors is not None:
+                        with torch.no_grad():
+                            for p, a in zip(model.parameters(), anchors):
+                                p.grad += prox_mu * (p - a)
+                    dp_opt.original_optimizer.step()
     return model
