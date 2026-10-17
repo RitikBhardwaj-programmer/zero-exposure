@@ -50,13 +50,13 @@ def train_private(model: nn.Module, X: np.ndarray, y: np.ndarray, *, epochs: int
     """Train `model` in place with DP-SGD. `model` must be a fresh module (Opacus attaches hooks to it)."""
     loader = DataLoader(TensorDataset(torch.from_numpy(X), torch.from_numpy(y)), batch_size=BATCH_SIZE, shuffle=False)
     optimizer = torch.optim.SGD(model.parameters(), lr=LR, momentum=MOMENTUM)
-    engine = PrivacyEngine(accountant="rdp")
     anchors = [torch.from_numpy(native(w)) for w in global_weights] if (prox_mu and global_weights is not None) else None
     loss_fn = nn.BCEWithLogitsLoss()
     with warnings.catch_warnings():
         # Opacus warns about its non-secure RNG (we seed on purpose, for reproducible experiments) and torch about
         # backward hooks on inputs that need no gradient: both are expected here.
         warnings.simplefilter("ignore")
+        engine = PrivacyEngine(accountant="rdp")
         dp_model, dp_opt, dp_loader = engine.make_private(
             module=model, optimizer=optimizer, data_loader=loader, noise_multiplier=noise, max_grad_norm=clip,
             poisson_sampling=True, noise_generator=torch.Generator().manual_seed(seed))
