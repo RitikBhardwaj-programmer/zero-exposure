@@ -382,7 +382,8 @@ def chi2_uniform(masked) -> dict:
     if masked is None or masked.size < 2:
         return {"stat": None, "df": CHI2_DF, "critical_99": critical}
     params = masked[1:].astype(np.uint64)
-    counts = np.bincount((params * CHI2_BINS) >> np.uint64(32), minlength=CHI2_BINS)[:CHI2_BINS].astype(float)
+    bins = ((params * CHI2_BINS) >> np.uint64(32)).astype(np.int64)  # 0..31; numpy 1.x bincount refuses uint64 input
+    counts = np.bincount(bins, minlength=CHI2_BINS)[:CHI2_BINS].astype(float)
     expected = params.size / CHI2_BINS
     return {"stat": float(((counts - expected) ** 2 / expected).sum()), "df": CHI2_DF, "critical_99": critical}
 
