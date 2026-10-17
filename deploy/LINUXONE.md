@@ -3,6 +3,9 @@
 Tested on the IBM LinuxONE Community Cloud (L1CC) for the IBM Z Datathon 2026: image `Ubuntu24.04-Datathon`, flavor `AI_LAB`
 (3 vCPU, 8 GB RAM, 50 GB disk), event code `SSF2026`. The machine is an IBM z17 (type 9175, Telum II AI accelerator).
 
+Measured on 17 Oct 2026 (L1CC, 3 vCPU): image build 16 min 31 s; a 3-round run (TLS, SecAgg+, label flip by va) completed with
+all four hospitals; proof commands of section 4 as expected (s390x, big-endian, one file + ca.crt per hospital, 0 errors).
+
 ## 1. Prepare the VM (once)
 ```bash
 sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 git
