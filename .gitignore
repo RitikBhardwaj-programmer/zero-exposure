@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Zero Exposure
+data/
+runs/
+dashboard/runs/
+deploy/certs/
+*.pem
+*.key

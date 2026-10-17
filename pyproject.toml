@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zero-exposure"
+version = "0.1.0"
+description = "Privacy-preserving federated learning across 4 hospitals on IBM LinuxONE (Flower + Opacus DP + SecAgg+)"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["flwr==1.37.0", "torch", "opacus==1.6.0", "numpy", "scikit-learn", "pandas"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["zero_exposure"]
+
+[tool.flwr.app]
+publisher = "zero-exposure"
+
+[tool.flwr.app.components]
+serverapp = "zero_exposure.server_app:app"
+clientapp = "zero_exposure.client_app:app"
+
+# Keys, types and meaning: CONTRACTS.md section 1. Floats need a decimal point; "" = not set.
+[tool.flwr.app.config]
+rounds = 20
+local-epochs = 5
+noise = 1.0
+clip = 1.0
+delta = 0.00001
+strategy = "fedavg"
+mu = 0.1
+seed = 0
+secagg = 1
+agg = "fedavg"
+trim-beta = 0.25
+attack = "none"
+attacker = 3
+boost = 10.0
+mia = 1
+mia-hospital = 0
+events-file = ""
+inspect-dir = ""
+inspect-round = 1
+side-dir = ""

@@ -1,0 +1,14 @@
+# Laptop / simulation setup. Install torch first from the CPU index (avoids the multi-GB CUDA build on Linux):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# The Docker / LinuxONE image installs its own set (deploy/Dockerfile).
+flwr[simulation]==1.37.0
+opacus==1.6.0
+numpy
+pandas
+scikit-learn
+scipy
+fastapi
+uvicorn
+cryptography
+pytest
+httpx

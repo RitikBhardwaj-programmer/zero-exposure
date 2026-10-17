@@ -1,0 +1,4 @@
+{"pid": 3, "round": 1, "stage": "received", "t": 1790000005.0}
+{"pid": 3, "round": 1, "stage": "trained", "t": 1790000010.0}
+{"pid": 3, "round": 1, "stage": "masked", "t": 1790000015.0}
+{"pid": 3, "round": 1, "stage": "sent", "t": 1790000020.0}
