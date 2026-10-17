@@ -95,6 +95,11 @@ Every event has `type` and `t` (Unix time, float). Numbers that are infinite or 
 
 Arrays may be big-endian when written on s390x; readers must use the dtype stored in the `.npy` header.
 
+**Demo channel, not part of the protected path.** `plain.npy` (inspector) and `side/mia_update.npz` (attack lab) hold ONE
+hospital's unmasked update. They exist so the dashboard can show what SecAgg+ hides and so the curious-server attack has
+something to attack; anyone who can read the run folder can read them, which bypasses SecAgg+ by design. They are written only
+when `inspect-dir` / `side-dir` are set. A production run sets neither (the sweeps set only `side-dir`, for the membership test).
+
 ## 5. RESULT line
 
 `RESULT ` + one JSON object: every section 1 key with `-` replaced by `_` (except the file/folder paths), plus

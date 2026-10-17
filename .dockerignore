@@ -1,0 +1,13 @@
+# Allow-list: the image gets only the code it runs. Never the hospital data (mounted per container), certificates, runs or tests.
+*
+!pyproject.toml
+!zero_exposure/
+!dashboard/
+!results/
+!scripts/
+!deploy/gen_certs.py
+!deploy/flwr_home/
+!deploy/flwr_home_insecure/
+!fixtures/
+dashboard/runs/
+**/__pycache__/

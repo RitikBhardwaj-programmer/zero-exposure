@@ -1,0 +1,7 @@
+# Fallback without TLS (deploy/docker-compose.insecure.yml): plaintext gRPC. Say "TLS off" if you demo with it.
+[superlink]
+default = "deploy"
+
+[superlink.deploy]
+address = "superlink:9093"
+insecure = true

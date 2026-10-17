@@ -1,0 +1,69 @@
+# Zero Exposure as containers: certificate maker (runs once), 1 SuperLink, 4 hospital SuperNodes, the dashboard.
+# From the repo root:  docker compose -f deploy/docker-compose.yml up --build      then http://127.0.0.1:8000
+# Each hospital container mounts ONLY its own data file and ONLY the CA certificate. Nothing is published except the dashboard,
+# and only on the host's loopback (it has no login).
+name: zero-exposure
+
+x-app: &app
+  build: { context: .., dockerfile: deploy/Dockerfile }
+  image: zero-exposure:latest
+  init: true
+  restart: unless-stopped
+
+x-node: &node
+  <<: *app
+  depends_on:
+    certs: { condition: service_completed_successfully }
+    superlink: { condition: service_started }
+  environment: { DATA_DIR: /data, ALLOW_MISSING_DATA: "1" }
+
+services:
+  certs:
+    <<: *app
+    restart: "no"
+    # ca.key stays in its own volume; the SuperLink gets its key pair + ca.crt; everyone else gets ca.crt only.
+    command: ["sh", "-c", "python deploy/gen_certs.py --out /certs-ca && cp /certs-ca/ca.crt /certs-ca/server.pem /certs-ca/server.key /certs-server/ && cp /certs-ca/ca.crt /certs-public/"]
+    volumes: [ "ca-key:/certs-ca", "certs-server:/certs-server", "certs-public:/certs-public" ]
+
+  superlink:
+    <<: *app
+    depends_on: { certs: { condition: service_completed_successfully } }
+    command: >
+      flower-superlink --ssl-ca-certfile /tls/ca.crt --ssl-certfile /tls/server.pem --ssl-keyfile /tls/server.key
+      --disable-runtime-dependency-installation --host 0.0.0.0 --port 9093 --fleet-api-address 0.0.0.0:9092
+    environment: { DATA_DIR: /data }
+    volumes:
+      - "../data/heart_disease:/data:ro"  # evaluation needs every hospital's test rows (stated demo limit)
+      - "certs-server:/tls:ro"
+      - "runs:/runs"
+
+  supernode-0:
+    <<: *node
+    command: flower-supernode --root-certificates /tls/ca.crt --superlink superlink:9092 --node-config "partition-id=0 num-partitions=4"
+    volumes: [ "../data/heart_disease/processed.cleveland.data:/data/processed.cleveland.data:ro", "certs-public:/tls:ro", "runs:/runs" ]
+  supernode-1:
+    <<: *node
+    command: flower-supernode --root-certificates /tls/ca.crt --superlink superlink:9092 --node-config "partition-id=1 num-partitions=4"
+    volumes: [ "../data/heart_disease/processed.hungarian.data:/data/processed.hungarian.data:ro", "certs-public:/tls:ro", "runs:/runs" ]
+  supernode-2:
+    <<: *node
+    command: flower-supernode --root-certificates /tls/ca.crt --superlink superlink:9092 --node-config "partition-id=2 num-partitions=4"
+    volumes: [ "../data/heart_disease/processed.switzerland.data:/data/processed.switzerland.data:ro", "certs-public:/tls:ro", "runs:/runs" ]
+  supernode-3:
+    <<: *node
+    command: flower-supernode --root-certificates /tls/ca.crt --superlink superlink:9092 --node-config "partition-id=3 num-partitions=4"
+    volumes: [ "../data/heart_disease/processed.va.data:/data/processed.va.data:ro", "certs-public:/tls:ro", "runs:/runs" ]
+
+  dashboard:
+    <<: *app
+    depends_on: [ superlink ]
+    command: python -m dashboard.server
+    environment: { MODE: deploy, HOST: 0.0.0.0, PORT: "8000", RUNS_DIR: /runs, FLWR_HOME: /app/deploy/flwr_home }
+    ports: [ "127.0.0.1:${DASHBOARD_PORT:-8000}:8000" ]
+    volumes: [ "certs-public:/tls:ro", "runs:/runs" ]
+
+volumes:
+  ca-key:
+  certs-server:
+  certs-public:
+  runs:
