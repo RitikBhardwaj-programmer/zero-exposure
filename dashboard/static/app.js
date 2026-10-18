@@ -530,7 +530,10 @@ function renderAccTable(labels, byRound) {
 function sizeCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth || 300;
-  const h = Number(canvas.getAttribute("height")) || 90;
+  // The logical height comes from the HTML height attribute, but canvas.height (below) overwrites that same attribute with the
+  // pixel size: keep the original once, or every redraw multiplies the height by devicePixelRatio again.
+  if (!canvas.dataset.h) canvas.dataset.h = canvas.getAttribute("height") || "90";
+  const h = Number(canvas.dataset.h) || 90;
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   canvas.style.height = `${h}px`;
@@ -668,11 +671,20 @@ function renderTimeline(stages) {
   const span = Math.max(t1 - t0, 1e-6);
   let html = "";
   stages.forEach((rows, pid) => {
-    const dots = rows.filter((s) => typeof s.t === "number").map((s, k) => {
-      const x = 4 + ((s.t - t0) / span) * 88;
-      return `<span class="tl-dot ${esc(s.stage)}" style="left:${x}%" title="${esc(s.stage)} at +${(s.t - t0).toFixed(2)} s"></span>` +
-        `<span class="tl-label ${esc(s.stage)}" style="left:${x}%${k % 2 === 1 ? ";bottom:-26px" : ""}">${esc(s.stage)}</span>`;
-    }).join("");
+    const pts = rows.filter((s) => typeof s.t === "number").map((s) => ({ ...s, x: 4 + ((s.t - t0) / span) * 88 }));
+    // Steps closer than 6% of the track (e.g. trained -> masked -> sent within milliseconds) share one label, so labels never overlap.
+    const groups = [];
+    pts.forEach((p) => {
+      const g = groups[groups.length - 1];
+      if (g && p.x - g[0].x < 6) g.push(p); else groups.push([p]);
+    });
+    const dots = pts.map((s) =>
+      `<span class="tl-dot ${esc(s.stage)}" style="left:${s.x}%" title="${esc(s.stage)} at +${(s.t - t0).toFixed(2)} s"></span>`).join("") +
+      groups.map((g, k) => {
+        const cls = g.some((s) => s.stage === "masked") ? "masked" : esc(g[0].stage);
+        return `<span class="tl-label ${cls}" style="left:${g[0].x}%${k % 2 === 1 ? ";bottom:-26px" : ""}">` +
+          `${g.map((s) => esc(s.stage)).join(" → ")}</span>`;
+      }).join("");
     const desc = rows.map((s) => `${s.stage} at +${(s.t - t0).toFixed(2)} s`).join(", ") || "no steps recorded";
     html += `<div class="tl-row" role="listitem" aria-label="${esc(HOSPITAL_LABELS[pid])}: ${esc(desc)}">` +
       `<span class="tl-name"><i style="background:${hospitalColor(pid)}"></i>${HOSPITAL_LABELS[pid]}</span>` +
