@@ -89,9 +89,19 @@ DP noise 1.0 unless stated. "Honest accuracy" = mean accuracy of the hospitals t
 
 **Runs on IBM LinuxONE** (IBM LinuxONE Community Cloud, z17, 3 vCPU, 8 GB, 17 Oct 2026)
 - s390x image build 16 min 31 s; full stack (certificates, SuperLink, 4 SuperNodes, dashboard) runs with TLS.
-- A 3-round run with SecAgg+ and label flip completed with all 4 hospitals; proof commands: `s390x`, big-endian, each hospital
-  container holds only its own data file and only the CA certificate, 0 errors in the logs; the inspector's masked vector passes
-  the uniformity test (χ² 27.9 < 52.2).
+- Proof commands: `s390x`, big-endian, each hospital container holds only its own data file and only the CA certificate, 0 errors in
+  the logs; the inspector's masked vector passes the uniformity test (χ² 19.8 and 27.9 < 52.2).
+- Four 20-round deployment runs started from the dashboard (seed 0, noise 1.0, attacker VA), all ending with `done`:
+
+| Run on LinuxONE | Honest accuracy | Global accuracy | Time |
+|---|---|---|---|
+| no attack, SecAgg+ on | 0.810 | 0.771 | 12.5 min |
+| label flip, SecAgg+ on | 0.733 (the laptop simulation with the same settings: 0.733) | 0.714 | 13.0 min |
+| label flip + boost, SecAgg+ on | 0.477 (SecAgg+ clipped it in 10 of 20 rounds) | 0.459 | 12.8 min |
+| label flip + boost, median, SecAgg+ off | 0.689 | 0.675 | 4.3 min |
+
+  These four runs ship as dashboard replays (`dashboard/replays/linuxone_*`), and `docs/screenshots/` holds the dashboard captured
+  live during them (`linuxone_*`) and replayed at the end (`replay_linuxone_*`).
 
 **Simulation = deployment:** the deployment gives exactly the simulation's accuracy, F1, per-hospital accuracy, ε and attack results
 (difference 0.0) for FedAvg, FedProx, label flip and boost + median; with SecAgg+ the aggregate stays within the quantization bound.
@@ -167,7 +177,7 @@ golden replay), so every panel has data before you train.
 - **Attacks:** SecAgg+ and the median defence exclude each other, so with SecAgg+ on there is no defence against a poisoning hospital.
 - **On s390x** every Flower process can crash at interpreter exit (pure-Python protobuf); the work is done by then, so a run is judged
   by its events file. The native launcher isolates hospitals by configuration only; real isolation is the container deployment.
-- Not measured: a 20-round run on LinuxONE, scalability beyond 4 hospitals. IBM Z features such as Secure Execution are next steps.
+- Not measured: more than one seed on LinuxONE, scalability beyond 4 hospitals. IBM Z features such as Secure Execution are next steps.
 
 ## Team and credits
 
