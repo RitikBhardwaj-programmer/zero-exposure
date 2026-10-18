@@ -66,22 +66,17 @@ def test_every_attacker_id_is_accepted_by_every_attack(attacker):
 
 @pytest.mark.parametrize("key", ["noise", "clip", "mu", "boost"])
 @pytest.mark.parametrize("value", ["nan", "inf"])
-@pytest.mark.xfail(strict=True, raises=pytest.fail.Exception, reason="FINDING: validate() compares with < / <=, which are False for NaN, so noise=nan, "
-                                       "clip=nan, mu=nan, boost=nan (and inf) are accepted")
 def test_non_finite_numbers_are_refused(key, value):
     with pytest.raises(ConfigError):
         RunConfig.from_mapping({key: value})
 
 
-@pytest.mark.xfail(strict=True, raises=pytest.fail.Exception, reason="FINDING: a float for an int key is truncated silently (rounds=2.7 -> 2)")
 def test_fractional_int_is_refused():
     with pytest.raises(ConfigError):
         RunConfig.from_mapping({"rounds": 2.7})
 
 
 @pytest.mark.parametrize("r", [0, 4])
-@pytest.mark.xfail(strict=True, raises=pytest.fail.Exception, reason="FINDING: inspect-round outside 1..rounds is accepted; the inspector then writes "
-                                       "aggregate.npy for round 0 (or nothing) and no hospital files, without a message")
 def test_inspect_round_outside_the_run_is_refused(r):
     with pytest.raises(ConfigError):
         RunConfig.from_mapping({"rounds": 3, "inspect-round": r, "inspect-dir": "x"})
@@ -90,7 +85,7 @@ def test_inspect_round_outside_the_run_is_refused(r):
 def test_public_dict_has_every_contract_key_except_paths():
     keys = set(RunConfig().public_dict())
     assert keys == {"rounds", "local-epochs", "noise", "clip", "delta", "strategy", "mu", "seed", "secagg", "agg", "trim-beta",
-                    "attack", "attacker", "boost", "mia", "mia-hospital", "inspect-round"}
+                    "attack", "attacker", "boost", "mia", "mia-hospital", "inspect-round", "reproducible"}
 
 
 def test_sim_env_overrides_run_config_and_bad_env_is_refused(monkeypatch):

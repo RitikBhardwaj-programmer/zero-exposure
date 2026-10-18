@@ -228,3 +228,4 @@ deploy/certs/
 *.key
 results/*.log
 results/*.err
+.venv*/

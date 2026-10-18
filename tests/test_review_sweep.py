@@ -85,9 +85,6 @@ def test_failed_runs_are_retried_next_time(tmp_path, monkeypatch):
     assert not (tmp_path / "strategy.jsonl").exists() or (tmp_path / "strategy.jsonl").read_text() == ""
 
 
-@pytest.mark.xfail(strict=True, raises=json.JSONDecodeError,
-                   reason="FINDING: a sweep killed while appending leaves a half line; done_keys() then raises "
-                          "JSONDecodeError and the sweep can no longer resume")
 def test_a_half_written_last_line_does_not_block_resume(results, monkeypatch):
     tmp, calls = results
     runs = sweep.plans(2, 1)["strategy"]

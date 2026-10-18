@@ -23,7 +23,7 @@ where it is, and it measures the privacy each hospital spends.
 | Layer | Tool | What it does |
 |---|---|---|
 | Federated learning | [Flower](https://flower.ai) 1.37 | The model travels to each hospital; the data stays. FedAvg or FedProx combines the updates. |
-| Differential privacy | [Opacus](https://opacus.ai) 1.6 (DP-SGD) | Clips each patient's influence and adds noise; each hospital's budget ε is tracked with the RDP accountant. |
+| Differential privacy | [Opacus](https://opacus.ai) 1.6 (DP-SGD) | Clips each patient's influence and adds noise drawn from secret OS randomness inside each hospital; each hospital's budget ε is tracked with the RDP accountant. |
 | Secure aggregation | Flower SecAgg+ | Masks each update with random values that cancel only in the sum. |
 | Encrypted transport | gRPC over TLS | Every link between the server and the hospital containers is encrypted (demo CA from `deploy/gen_certs.py`). |
 | Attack lab | this repo | A hospital poisons its update (label flip, boost, both); the server runs a membership-inference attack; the median of the updates is the defence. |
@@ -52,6 +52,8 @@ institutions, each kept as one federated hospital: Cleveland (303 patients), Hun
 
 All numbers are measured in this repository (`results/*.jsonl`, 110 runs): mean ± standard deviation over 5 seeds, 20 rounds,
 DP noise 1.0 unless stated. "Honest accuracy" = mean accuracy of the hospitals that are not the attacker.
+Experiments use seeded training (`reproducible=1`) so runs can be repeated and compared seed by seed; real runs use secret
+randomness (`reproducible=0`, the default), without which ε would be no guarantee. The noise distribution is the same either way.
 
 **Privacy costs little accuracy**
 
@@ -100,7 +102,8 @@ DP noise 1.0 unless stated. "Honest accuracy" = mean accuracy of the hospitals t
 | label flip + boost, SecAgg+ on | 0.477 (SecAgg+ clipped it in 10 of 20 rounds) | 0.459 | 12.8 min |
 | label flip + boost, median, SecAgg+ off | 0.689 | 0.675 | 4.3 min |
 
-  These four runs ship as dashboard replays (`dashboard/replays/linuxone_*`), and `docs/screenshots/` holds the dashboard captured
+  These runs were made with seeded training, before secret randomness became the default (an independent review found that
+  seeding from the public run seed voids the DP guarantee; fixed the same day). These four runs ship as dashboard replays (`dashboard/replays/linuxone_*`), and `docs/screenshots/` holds the dashboard captured
   live during them (`linuxone_*`) and replayed at the end (`replay_linuxone_*`).
 
 **Simulation = deployment:** the deployment gives exactly the simulation's accuracy, F1, per-hospital accuracy, ε and attack results
@@ -126,6 +129,7 @@ runs one SuperLink, four SuperNodes (each mounts only its own data file and only
 On IBM LinuxONE follow [`deploy/LINUXONE.md`](deploy/LINUXONE.md).
 
 ### 2b. Python on a laptop
+The simulation needs Ray. On Windows, Flower installs Ray only for Python 3.12 or older, so use Python 3.10-3.12 there.
 ```bash
 python -m venv .venv
 .venv/Scripts/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu   # Linux/macOS: .venv/bin/python
@@ -173,7 +177,11 @@ golden replay), so every panel has data before you train.
   (evaluation only). The dashboard's inspector (`plain.npy`) and the attack side channel hold one hospital's unmasked update, on a
   volume shared by the containers: they exist to show what SecAgg+ hides and bypass it by design. A production run sets neither.
 - **TLS** uses a self-made demo CA and authenticates only the server: it encrypts the links but does not stop an unknown hospital from
-  joining. The dashboard has no login and listens on loopback only.
+  joining (Flower's `--enable-supernode-auth` with per-hospital keys would). The hospital containers share one Docker network
+  with the SuperLink, so a hospital could also reach its run-control API, which has no login (separate networks or Flower user
+  authentication would close this; not done). The dashboard has no login and listens on loopback only.
+- **Randomness:** DP noise uses torch generators seeded with secret 64-bit values from the operating system; these are not
+  cryptographic generators (Opacus `secure_mode` would be).
 - **Attacks:** SecAgg+ and the median defence exclude each other, so with SecAgg+ on there is no defence against a poisoning hospital.
 - **On s390x** every Flower process can crash at interpreter exit (pure-Python protobuf); the work is done by then, so a run is judged
   by its events file. The native launcher isolates hospitals by configuration only; real isolation is the container deployment.

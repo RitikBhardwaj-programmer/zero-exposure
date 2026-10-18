@@ -47,6 +47,7 @@ class RunConfig:
     inspect_dir: str = ""
     inspect_round: int = 1
     side_dir: str = ""
+    reproducible: int = 0  # 0: secret DP randomness (a real guarantee); 1: seeded from `seed` (sweeps, tests; no guarantee)
 
     @classmethod
     def from_mapping(cls, raw) -> "RunConfig":
@@ -59,8 +60,14 @@ class RunConfig:
                 raise ConfigError(f"unknown setting {key!r}")
             typ = known[name]
             try:
-                kwargs[name] = int(value) if typ == "int" else float(value) if typ == "float" else str(value)
-            except (TypeError, ValueError):
+                if typ == "int":
+                    as_float = float(value)
+                    if not as_float.is_integer():  # rounds=2.7 must not silently become 2
+                        raise ValueError
+                    kwargs[name] = int(as_float)
+                else:
+                    kwargs[name] = float(value) if typ == "float" else str(value)
+            except (TypeError, ValueError, OverflowError):
                 raise ConfigError(f"{key}: expected {typ}, got {value!r}") from None
         cfg = cls(**kwargs)
         cfg.validate()
@@ -68,8 +75,14 @@ class RunConfig:
 
     def validate(self) -> None:
         """Raise ConfigError for a bad value or a combination the system refuses (CONTRACTS.md section 1)."""
+        if not all(math.isfinite(v) for v in (self.noise, self.clip, self.delta, self.mu, self.boost, self.trim_beta)):
+            raise ConfigError("noise, clip, delta, mu, boost and trim-beta must be finite numbers")
         if self.rounds < 1 or self.local_epochs < 1:
             raise ConfigError("rounds and local-epochs must be at least 1")
+        if not 1 <= self.inspect_round <= self.rounds:
+            raise ConfigError(f"inspect-round must be between 1 and rounds ({self.rounds})")
+        if self.reproducible not in (0, 1):
+            raise ConfigError("reproducible must be 0 or 1")
         if self.noise < 0 or self.clip <= 0 or not 0 < self.delta < 1:
             raise ConfigError("noise must be >= 0, clip > 0 and 0 < delta < 1")
         if self.strategy not in STRATEGIES:

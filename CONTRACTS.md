@@ -38,6 +38,7 @@ dashboard. Floats must be written with a decimal point (`noise=1.0`). An empty s
 | `inspect-dir` | str | `""` | inspector folder (section 4) |
 | `inspect-round` | int | 1 | round the inspector records |
 | `side-dir` | str | `""` | folder shared by all processes for the attack side channel (attacker stats, MIA hospital's last update) |
+| `reproducible` | int | 0 | 0 = each hospital draws its DP noise and sampling from secret OS randomness (ε is a real guarantee); 1 = seeded from `seed` (repeatable, for sweeps and tests; ε is then no guarantee against whoever knows the seed) |
 
 Refused combinations (the run stops with a clear message before training; the dashboard returns 422 with the same message):
 - `agg` != `fedavg` with `secagg` = 1: robust aggregation needs every update in the clear; SecAgg+ hides them.

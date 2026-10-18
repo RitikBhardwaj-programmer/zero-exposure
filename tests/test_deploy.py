@@ -50,7 +50,7 @@ def runs(tmp_path_factory):
                            ("median", {"secagg": 0, "agg": "median", "attack": "boost"}), ("secagg", {"secagg": 1})):
             folder = tmp / f"dep_{tag}"
             settings = {"rounds": ROUNDS, "events-file": (folder / "events.jsonl").as_posix(),
-                        "inspect-dir": (folder / "insp").as_posix(), "side-dir": (folder / "side").as_posix(), **extra}
+                        "inspect-dir": (folder / "insp").as_posix(), "side-dir": (folder / "side").as_posix(), "reproducible": 1, **extra}
             dep[tag] = (L.parse_result(d.run(settings)), folder)
         dep["refused"] = d.run({"rounds": ROUNDS, "secagg": 1, "agg": "median"}, timeout=300)
     return ref, dep

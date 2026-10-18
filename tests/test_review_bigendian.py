@@ -34,7 +34,7 @@ def test_big_endian_helper_really_swaps_bytes(initial):
 
 @pytest.mark.parametrize("attack", ["none", "flipboost"])
 def test_client_fit_gives_the_same_update_for_big_endian_globals(initial, attack, tmp_path):
-    cfg = RunConfig(rounds=1, local_epochs=1, attack=attack, attacker=0, mia=0, side_dir=str(tmp_path))
+    cfg = RunConfig(rounds=1, local_epochs=1, attack=attack, attacker=0, mia=0, side_dir=str(tmp_path), reproducible=1)
     client = HospitalClient(cfg, 0)
     little, n1, _ = client.fit(initial, {"server_round": 1})
     bigres, n2, _ = client.fit(big(initial), {"server_round": 1})
