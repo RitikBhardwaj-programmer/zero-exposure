@@ -35,8 +35,11 @@ def hospital(pid: int, seed: int) -> Hospital:
     return _hospitals[key]
 
 
-def train_seed(cfg: RunConfig, pid: int, rnd: int) -> int:
-    """Distinct, reproducible random stream per run seed, hospital and round."""
+def train_seed(cfg: RunConfig, pid: int, rnd: int) -> int | None:
+    """None (secret OS randomness inside this hospital) unless the run asks for reproducible training; then a distinct seed
+    per run seed, hospital and round, from which privacy.stream_seeds derives independent noise and sampling streams."""
+    if not cfg.reproducible:
+        return None
     return cfg.seed * 1_000_000 + pid * 1_000 + rnd
 
 

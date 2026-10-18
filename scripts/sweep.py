@@ -51,8 +51,12 @@ def done_keys(path: Path) -> set:
         return set()
     out = set()
     for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
+        if not line.strip():
+            continue
+        try:
             out.add(key(json.loads(line)))
+        except json.JSONDecodeError:  # a line cut short when a sweep was killed mid-write: that run is simply redone
+            continue
     return out
 
 
@@ -61,7 +65,8 @@ _lock = threading.Lock()
 
 def run_one(sweep: str, settings: dict, out: Path) -> str:
     with tempfile.TemporaryDirectory(prefix="ze-sweep-") as tmp:
-        args = {**settings, "side-dir": Path(tmp).as_posix()}  # side channel: membership test + attacker stats
+        # side channel: membership test + attacker stats; reproducible=1: seeded runs, so seeds pair up across settings
+        args = {**settings, "side-dir": Path(tmp).as_posix(), "reproducible": 1}
         cmd = [sys.executable, "-m", "zero_exposure.sim", *[f"{k}={v}" for k, v in args.items()]]
         t0 = time.time()
         p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",

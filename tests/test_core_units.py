@@ -142,6 +142,15 @@ def test_training_is_reproducible_per_seed():
     assert not all(np.array_equal(x, y) for x, y in zip(a, c))
 
 
+def test_default_training_randomness_is_secret():
+    """Without a seed (reproducible=0, the default) nobody can replay a hospital's training: two calls differ."""
+    from zero_exposure.client_app import train_seed
+    assert train_seed(RunConfig(seed=0), 1, 1) is None and train_seed(RunConfig(seed=0, reproducible=1), 1, 1) is not None
+    _, a = _train(None)
+    _, b = _train(None)
+    assert not all(np.array_equal(x, y) for x, y in zip(a, b))
+
+
 def test_fedprox_pulls_towards_the_global_model():
     start, plain = _train(5, mu=0.0)
     _, prox = _train(5, mu=5.0, anchor=start)

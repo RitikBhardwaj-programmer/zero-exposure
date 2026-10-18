@@ -24,8 +24,6 @@ def _local_update(X, y, seed, noise=1.0, epochs=1):
 
 
 # ---------------------------------------------------------------- the DP noise must be secret
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FINDING 1: DP-SGD noise and Poisson sampling are derived only from the public run "
-                                       "seed, so the update is a deterministic function of the data and epsilon is void")
 def test_dp_update_is_not_a_deterministic_function_of_public_values():
     """Differential privacy needs randomness the adversary cannot reproduce. The server knows the run seed (it is in
     run_config, the baseline event and RESULT), the hospital id and the round, i.e. everything train_seed() uses.
@@ -51,16 +49,17 @@ def test_dp_update_is_not_a_deterministic_function_of_public_values():
     assert correct < 2, f"the server identified the dataset in 2/2 trials although epsilon = {eps_one_round:.2f}"
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="FINDING 1b: the Poisson-sampling stream of round r reuses the seed of the noise "
-                                       "stream of round r+1 (train_seed + 1)")
 def test_sampling_and_noise_streams_never_share_a_seed():
-    """privacy.train_private seeds the noise generator with `seed` and the batch sampler with `seed + 1`, and
-    client_app.train_seed gives consecutive rounds consecutive seeds. So round r's sampler and round r+1's noise start from
-    the same generator state. DP noise must be independent of everything else."""
-    cfg = RunConfig(seed=0, rounds=20)
-    noise_seeds = {train_seed(cfg, pid, r) for pid in range(4) for r in range(1, cfg.rounds + 1)}
-    sampler_seeds = {train_seed(cfg, pid, r) + 1 for pid in range(4) for r in range(1, cfg.rounds + 1)}
-    assert not noise_seeds & sampler_seeds, sorted(noise_seeds & sampler_seeds)[:5]
+    """Finding 1b (fixed): in reproducible mode the noise and the batch-sampling generators of every hospital and round
+    get seeds derived independently (numpy SeedSequence), so no stream starts where another one does."""
+    cfg = RunConfig(seed=0, rounds=20, reproducible=1)
+    noise, sampler = set(), set()
+    for pid in range(4):
+        for r in range(1, cfg.rounds + 1):
+            a, b = privacy.stream_seeds(train_seed(cfg, pid, r))
+            noise.add(a)
+            sampler.add(b)
+    assert len(noise) == len(sampler) == 4 * cfg.rounds and not noise & sampler
 
 
 def test_train_seeds_are_distinct_per_hospital_round_and_run_seed():
@@ -68,7 +67,7 @@ def test_train_seeds_are_distinct_per_hospital_round_and_run_seed():
     for s in range(3):
         for pid in range(4):
             for r in range(1, 31):  # the dashboard allows up to 30 rounds
-                k = train_seed(RunConfig(seed=s), pid, r)
+                k = train_seed(RunConfig(seed=s, reproducible=1), pid, r)
                 assert k not in seen, (k, seen.get(k), (s, pid, r))
                 seen[k] = (s, pid, r)
 

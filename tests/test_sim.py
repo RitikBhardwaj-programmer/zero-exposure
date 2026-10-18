@@ -19,7 +19,7 @@ def sim(tmp: Path, tag: str, **settings):
     d = tmp / tag
     d.mkdir(parents=True, exist_ok=True)
     args = {"rounds": ROUNDS, "events-file": (d / "events.jsonl").as_posix(), "inspect-dir": (d / "insp").as_posix(),
-            "side-dir": (d / "side").as_posix(), **settings}
+            "side-dir": (d / "side").as_posix(), "reproducible": 1, **settings}
     cmd = [sys.executable, "-m", "zero_exposure.sim", *[f"{k}={v}" for k, v in args.items()]]
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
                        env={**os.environ, "PYTHONIOENCODING": "utf-8"})

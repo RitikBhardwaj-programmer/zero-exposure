@@ -75,6 +75,7 @@ class LocalDeployment:
     """Context manager: starts the SuperLink and 4 SuperNodes; `run(settings)` submits one run and waits for it."""
 
     def __init__(self, workdir=None, data_dir=None, tls=None):
+        self.owns_work = workdir is None  # a folder we made is deleted on close (it holds the CA and server private keys)
         self.work = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="ze-deploy-"))
         self.data_dir = Path(data_dir) if data_dir else ROOT / "data" / "heart_disease"
         self.tls = (os.environ.get("TLS", "1").lower() not in ("0", "false", "off", "no")) if tls is None else tls
@@ -156,6 +157,8 @@ class LocalDeployment:
         for p in reversed(self.procs):
             kill_tree(p)
         self.procs = []
+        if self.owns_work and os.environ.get("KEEP") != "1":  # KEEP=1 keeps logs and certificates for debugging
+            shutil.rmtree(self.work, ignore_errors=True)
 
     def __exit__(self, *exc):
         self.close()
